@@ -41,5 +41,8 @@
     "ES6+",
     "live reload",
     "Sass"
-  ]
+  ],
+  "dependencies": {
+    "maplibre-gl": "^3.6.2"
+  }
 }
