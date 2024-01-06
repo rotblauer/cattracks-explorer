@@ -63,6 +63,9 @@ import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl
 
     map.on('load', function () {
         console.log("map loaded");
+
+
+
         map.addSource('cattracks', {
             type: 'vector',
             tiles: ['http://localhost:3001/services/ia.level-23/tiles/{z}/{x}/{y}.pbf'],
@@ -91,9 +94,9 @@ import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl
                     'Running',
                     '#028532',
                     'Bike',
-                    '#4833da',
+                    '#3112f6',
                     'Automotive',
-                    '#e13bfb',
+                    '#d670fa',
                     'Unknown',
                     '#00000000',
                     /* else */ '#00000000',
@@ -120,6 +123,16 @@ import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl
                 // 'circle-radius': ["interpolate", ["linear"], ["get", "Accuracy"], 4, 1, 100, metersToPixelsAtMaxZoom(100, 53.7654751)],
             }
         });
+
+        function filterBy(min, max) {
+            var filters = [
+                'all',
+                [">=", 'Accuracy', min],
+                ["<=", 'Accuracy', max]
+            ];
+            map.setFilter('my-cattracks', filters);
+        }
+        filterBy(1, 20);
 
         // map.addSource('uploaded-source', {
         //     'type': 'geojson',
