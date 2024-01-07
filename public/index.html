@@ -10,15 +10,25 @@
 <!--  <link rel='stylesheet' href='./assets/styles/mapbox-gl-ys-v3.0.1.css' />-->
   <link rel="stylesheet" href="./assets/styles/main.css" />
 <!--  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/css/ion.rangeSlider.min.css"/>-->
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/css/ion.rangeSlider.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<!--  <script src="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/js/ion.rangeSlider.min.js"></script>-->
 </head>
 <body>
-<!--<div class="infoContainer"></div>-->
-<!--<div class="sliderContainer">-->
-<!--  <input type="text" id="sampleSlider" />-->
+<!-- Text input that will be able to change the property that the slider controls. -->
+<!--<div class="infoContainer">-->
+<!--<input type="text" id="sliderProperty" value="Accuracy" />-->
 <!--</div>-->
+<div class="infoContainer"></div>
+<div class="sliderContainer">
+  <input type="text" id="accuracySlider" />
+  <input type="text" id="speedSlider" /> <!--kmph-->
+</div>
+
 <div id="map"></div>
 <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>-->
-<!--<script src="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/js/ion.rangeSlider.min.js"></script>-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/js/ion.rangeSlider.min.js"></script>
 <script src="./assets/scripts/bundle.js"></script>
 </body>
 </html>

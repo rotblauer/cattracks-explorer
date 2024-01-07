@@ -1,4 +1,5 @@
 import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl');"
+// import * as $ from 'jquery'
 // import 'maplibre-gl/dist/maplibre-gl.css';
 
 (function() {
@@ -64,11 +65,49 @@ import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl
     map.on('load', function () {
         console.log("map loaded");
 
+        // http://ionden.com/a/plugins/ion.rangeSlider/api.html
+        $("#accuracySlider").ionRangeSlider({
+            type: "double",
+            skin: "flat", // "round",
+            hide_min_max: false,
+            force_edges: true,
+            min: 0,
+            max: 200,
+            grid: false,
+            onChange: function (values) {
+                const source = map.getSource('cattracks');
+                const {from, to} = values;
+                if (!source) return;
+                filterBy("Accuracy", from, to);
+                //const filteredData = filterData(data, from, to);
+                //source.setData(filteredData);
+            },
+        });
+        $("#speedSlider").ionRangeSlider({
+            type: "double",
+            skin: "flat", // "round",
+            hide_min_max: false,
+            force_edges: true,
+            min: 0,
+            max: Math.round(200), // -> 200 kmph -> m/s
+            grid: false,
+            onChange: function (values) {
+                const source = map.getSource('cattracks');
+                const {from, to} = values;
+                if (!source) return;
+                filterBy("Speed", from, to);
+                //const filteredData = filterData(data, from, to);
+                //source.setData(filteredData);
+            },
+        });
 
+        const tileService = "edge"; // ia.level-23
+        const sourceLayer = "catTrackEdge"; // ia.level-23
+        const tileSourceName = "cattracks";
 
-        map.addSource('cattracks', {
+        map.addSource( tileSourceName, {
             type: 'vector',
-            tiles: ['http://localhost:3001/services/ia.level-23/tiles/{z}/{x}/{y}.pbf'],
+            tiles: [`http://localhost:3001/services/${tileService}/tiles/{z}/{x}/{y}.pbf`],
             minzoom: 3,
             maxzoom: 18
         });
@@ -78,61 +117,57 @@ import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl
         map.addLayer({
             'id': 'my-cattracks',
             'type': 'circle',
-            'source': 'cattracks',
-            'source-layer': 'ia.level-23',
+            'source':  tileSourceName,
+            'source-layer': sourceLayer,
             'paint': {
-                // 'circle-color': '#ff0014',
                 // https://docs.mapbox.com/mapbox-gl-js/example/data-driven-circle-colors/
-                // Color circles by ethnicity, using a `match` expression.
                 'circle-color': [
                     'match',
                     ['get', 'Activity'],
-                    'Stationary',
-                    '#f32d2d',
-                    'Walking',
-                    '#e78719',
-                    'Running',
-                    '#028532',
-                    'Bike',
-                    '#3112f6',
-                    'Automotive',
-                    '#d670fa',
-                    'Unknown',
-                    '#00000000',
+                    'Stationary', '#f32d2d',
+                    'Walking', '#e78719',
+                    'Running', '#028532',
+                    'Bike', '#3112f6',
+                    'Automotive', '#d670fa',
+                    'Unknown', '#00000000',
                     /* else */ '#00000000',
                 ],
                 'circle-opacity': ["interpolate", ["linear"], ["get", "Accuracy"], 4, 0.8, 100, 0.1],
                 'circle-radius': ["interpolate", ["linear"], ["get", "Accuracy"], 4, 2, 100, 30],
                 'circle-blur': ["interpolate", ["linear"], ["get", "Accuracy"], 4, 0, 100, 0.8],
-                // 'circle-stroke-width': 1,
-                // 'circle-stroke-color': '#444',
+                // TODO: get Accuracy to be circle-radius in true-to-zoom meters
                 // https://stackoverflow.com/questions/37599561/drawing-a-circle-with-the-radius-in-miles-meters-with-mapbox-gl-js
-                // 'circle-radius': [
-                //     'interpolate',
-                //     // ['exponential', 2],
-                //     ['linear'],
-                //     ['get', "Accuracy"],
-                //     4, 1.5, // 0, 0,
-                //     100, [
-                //         '/',
-                //         ['/', meters, 0.075],
-                //         ['cos', ['*', ['get', 'lat'], ['/', Math.PI, 180]]],
-                //     ],
-                // ],
-                // https://stackoverflow.com/questions/37599561/drawing-a-circle-with-the-radius-in-miles-meters-with-mapbox-gl-js
-                // 'circle-radius': ["interpolate", ["linear"], ["get", "Accuracy"], 4, 1, 100, metersToPixelsAtMaxZoom(100, 53.7654751)],
             }
         });
 
-        function filterBy(min, max) {
+        let accuracyD = $("#accuracySlider").data("ionRangeSlider");
+        console.log("accuracyD", accuracyD);
+        let speedD = $("#speedSlider").data("ionRangeSlider");
+        let myFilters = {
+            "Accuracy": [accuracyD.old_from || 0, accuracyD.old_to || 200],
+            "Speed": [speedD.old_from || 0, speedD.old_to || 100],
+        }
+        function filterBy(property, min, max) {
+
             var filters = [
                 'all',
-                [">=", 'Accuracy', min],
-                ["<=", 'Accuracy', max]
+                // [">=", property, min],
+                // ["<=", property, max]
             ];
+
+            myFilters[property] = [min, max];
+
+            for (var key in myFilters) {
+                if (myFilters.hasOwnProperty(key)) {
+                    filters.push([">=", key, key == "Speed" ? myFilters[key][0] / 3.6 : myFilters[key][0]]);
+                    filters.push(["<=", key, key == "Speed" ? myFilters[key][1] / 3.6 : myFilters[key][1]]);
+                }
+            }
+
             map.setFilter('my-cattracks', filters);
         }
-        filterBy(1, 20);
+        filterBy("Accuracy", accuracyD.old_from, accuracyD.old_to);
+        filterBy("Speed", speedD.old_from, speedD.old_to);
 
         // map.addSource('uploaded-source', {
         //     'type': 'geojson',
