@@ -45,6 +45,7 @@
   "dependencies": {
     "@turf/turf": "^6.5.0",
     "jquery": "^3.7.1",
-    "maplibre-gl": "^3.6.2"
+    "maplibre-gl": "^3.6.2",
+    "node-gzip": "^1.1.2"
   }
 }

@@ -3,6 +3,9 @@ import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl
 // import 'maplibre-gl/dist/maplibre-gl.css';
 import * as turf from '@turf/turf';
 
+// const {gzip, ungzip} = require('node-gzip');
+// import {ungzip} from "node-gzip";
+
 (function () {
 
     let data = {
@@ -121,18 +124,15 @@ import * as turf from '@turf/turf';
         let geojsonDataTargets = params.get("geojson").split(",");
         // split targets by comma and iterate the items
         for (let target of geojsonDataTargets) {
-            // console.debug("target", target);
-            // await fetchGzippedJSON(target, (err, data) => {
-            //     if (err) {
-            //         console.error(err);
-            //     } else {
-            //         renderGeoJSON(map, target, data);
-            //         map.fitBounds(turf.bbox(data), {padding: 20});
-            //         // map.setCenter(turf.center(data).geometry.coordinates);
-            //     }
-            // });
+
             console.debug("target", target);
-            await fetch(target).then(res => {
+
+            // await causes the data to be rendered in the order
+            // they were defined in the URL.
+            await fetch(target).then(async res => {
+                // if (/.gz$/.test(target)) {
+                //     res = await ungzip(res);
+                // }
                 console.debug("res", res);
                 return res.json();
             }).then(data => {
