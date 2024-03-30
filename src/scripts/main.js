@@ -66,40 +66,228 @@ import * as turf from '@turf/turf';
     const metersToPixelsAtMaxZoom = (meters, latitude) =>
         meters / 0.075 / Math.cos(latitude * Math.PI / 180)
 
-    function paintFor(layerType, n) {
-        const color = colors[n];
+    const colors = [
+        '#0000FF',
+        '#FF0000',
+        '#00FF00',
+        '#d06700',
+        '#FF00FF',
+        '#00FFFF',
+        '#000000',
+    ];
+    let lastColorIndex = 0;
+    function getNextColor() {
+        const color = colors[lastColorIndex];
+        lastColorIndex++;
+        if (lastColorIndex >= colors.length) {
+            lastColorIndex = 0;
+        }
+        return color;
+    }
+
+    function paintFor(layerType) {
         switch (layerType) {
             case 'circle':
                 return {
                     // https://maplibre.org/maplibre-style-spec/layers/#paint-circle-circle-color
                     // https://docs.mapbox.com/mapbox-gl-js/example/data-driven-circle-colors/
-                    'circle-color': color,
+                    // 'circle-color': "#000000",
+                    'circle-color': [
+                        'case',
+                        ['boolean', ['feature-state', 'hover'], false], 'yellow',
+                        ['==', ['get', 'IsTrip'], true], '#0000FF',
+                        ['==', ['get', 'IsTrip'], false], '#FF0000',
+                        '#000000',
+                    ],
                     'circle-opacity': 1,
-                    'circle-radius': 2,
-                    // 'line-color': color,
+                    // 'circle-radius': 2,
+                    'circle-radius': [
+                        "interpolate",
+                        ["exponential", 0.9999],
+                        // ["get", "Count"],
+                        ["get", "Duration"],
+                        1, 2,
+                        60 * 60 * 8, 20,
+                    ],
+                    // 'circle-radius': [
+                    //     'case',
+                    //     ['==', ['get', 'IsTrip'], true], 2,
+                    //     ['==', ['get', 'IsTrip'], false], 6,
+                    //     2,
+                    // ],
+                    // 'line-color': getNextColor,
                     // 'line-width': 2,
                 };
             case 'line':
                 return {
-                    'line-color': color,
-                    'line-width': 2,
-                    'line-opacity': 1,
+                    'line-color': [
+                        'match',
+                        ['get', 'Activity'],
+                        'Stationary', '#f32d2d',
+                        'Walking', '#e78719',
+                        'Running', '#028532',
+                        'Bike', '#3112f6',
+                        'Automotive', '#d670fa',
+                        'Unknown', '#000000',
+                        '#888888',
+                    ],
+                    'line-width': 4,
+                    'line-opacity': [
+                        'case',
+                        ['boolean', ['feature-state', 'hover'], false], 1,
+                        0.8
+                    ]
+
+                    // 'line-gap-width': 2,
+                    // 'line-cap': 'round',
                 };
         }
         return {};
     }
 
-    const colors = [
-        '#0000FF',
-        '#FF0000',
-        '#00FF00',
-        '#FFFF00',
-        '#FF00FF',
-        '#00FFFF',
-        '#000000',
-    ];
+    // Create a popup, but don't add it to the map yet.
+    const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false
+    });
+    popup.on("close", (e) => console.debug("popup closed", e));
+    popup.on("click", (e) => {
+      popup.remove();
+    });
 
-    let renderCalledN = 0;
+    let hoveredStateId = null;
+
+    function addHoverState(sourceId, sourceLayer) {
+        console.debug("addHoverState", sourceId, sourceLayer);
+        // sourceLayer: sourceLayer ? sourceLayer : null
+        map.on('mouseenter', sourceId, (e) => {
+            console.debug("hoverState mouse ENTER", e, hoveredStateId);
+            if (e.features.length > 0) {
+                if (hoveredStateId) {
+                    map.setFeatureState(
+                        {
+                            source: sourceId,
+                            // id: hoveredStateId,
+                        },
+                        {hover: false}
+                    );
+                }
+                if (typeof e.features[0].properties.id === "undefined") {
+                    e.features[0].properties.id = e.features[0].properties.UUID + e.features[0].properties.Time;
+                }
+                hoveredStateId = e.features[0].properties.UUID + e.features[0].properties.Time;
+                map.setFeatureState(
+                    // FIXME: There is no 'id' for the feature?
+                    // That's an arbitrary but conventional property for uniquely identifying features.
+                    // It would be sweet if I could use the UUID+Time of the feature instead,
+                    // but can't.
+                    {
+                        source: sourceId,
+                        // id: hoveredStateId,
+                    },
+                    {hover: true}
+                );
+                console.debug("hovered", hoveredStateId);
+            }
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', sourceId, () => {
+            map.getCanvas().style.cursor = '';
+            if (hoveredStateId) {
+                map.setFeatureState(
+                    {
+                        source: sourceId,
+                        // id: hoveredStateId,
+                    },
+                    {hover: false}
+                );
+                console.debug("unhovered", hoveredStateId);
+            }
+            hoveredStateId = null;
+        });
+    }
+
+    let $featureDebugWindow = $(".infoContainer")
+        // .css("display", "none")
+        .addClass("feature-debug-window");
+
+    $("#map").append($featureDebugWindow);
+
+    // https://maplibre.org/maplibre-gl-js/docs/examples/popup-on-hover/
+    function addInspectPopup(layerId) {
+        map.on('mouseenter', layerId, (e) => {
+
+            // // https://maplibre.org/maplibre-gl-js/docs/examples/hover-styles/
+            // if (e.features.length > 0) {
+            //     if (hoveredStateId) {
+            //         map.setFeatureState(
+            //             {source: layerId, id: hoveredStateId},
+            //             {hover: false}
+            //         );
+            //     }
+            //     console.debug("e.features[0]", e.features[0]);
+            //     hoveredStateId = e.features[0].properties.Time + e.features[0].properties.UUID;
+            //     map.setFeatureState(
+            //         {source: layerId, id: hoveredStateId},
+            //         {hover: true}
+            //     );
+            // }
+
+            /*
+
+             */
+            // Change the cursor style as a UI indicator.
+            map.getCanvas().style.cursor = 'pointer';
+
+            // Is it a line or a point?
+            console.debug("e.features[0].geometry", e.features[0].geometry);
+            let coordinates = [0,0];
+            const feat = e.features[0];
+            if (feat.geometry.type === "MultiLineString") {
+                // Get LAST-LAST coordinates from the list.
+                const lastLine = feat.geometry.coordinates[feat.geometry.coordinates.length -1];
+                coordinates = lastLine[lastLine.length-1].slice();
+            } else if (feat.geometry.type === "LineString") {
+                // Get LAST coordinates from the list.
+                coordinates = feat.geometry.coordinates[feat.geometry.coordinates.length -1].slice();
+            } else if (feat.geometry.type === "Point") {
+                coordinates = feat.geometry.coordinates.slice();
+            }
+            console.debug(feat.geometry.type, coordinates);
+            const description = JSON.stringify(e.features[0].properties, null, '<br>');
+
+            // Ensure that if the map is zoomed out such that multiple
+            // copies of the feature are visible, the popup appears
+            // over the copy being pointed to.
+            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
+
+            // Populate the popup and set its coordinates
+            // based on the feature found.
+            // popup.setLngLat(coordinates).setHTML(description).addTo(map);
+            // popup.setHTML(description).addTo(map);
+            $featureDebugWindow.show();
+            $featureDebugWindow.html(`<code>${description}</code>`);
+        });
+
+        map.on('mouseleave', layerId, () => {
+            map.getCanvas().style.cursor = '';
+            setTimeout(() => {
+                // popup.remove(); // from map
+
+            }, 500);
+            // $featureDebugWindow.hide();
+
+            // if (hoveredStateId) {
+            //     map.setFeatureState(
+            //         {source: layerId, id: hoveredStateId},
+            //         {hover: false}
+            //     );
+            // }
+            // hoveredStateId = null;
+        });
+    }
 
     function renderGeoJSON(map, sourceName, data) {
         map.addSource(sourceName, {
@@ -111,9 +299,10 @@ import * as turf from '@turf/turf';
             'id': `layer-${sourceName}`,
             'source': sourceName,
             'type': layerType,
-            'paint': paintFor(layerType, renderCalledN)
+            'paint': paintFor(layerType)
         });
-        renderCalledN++;
+        addHoverState(sourceName, `layer-${sourceName}`);
+        addInspectPopup(`layer-${sourceName}`);
     }
 
     map.on('load', async () => {
@@ -121,11 +310,22 @@ import * as turf from '@turf/turf';
 
         let params = new URLSearchParams(window.location.search);
         console.debug("params", params);
-        let geojsonDataTargets = params.get("geojson").split(",");
+        let geojsonDataTargets = [];
+        if (params.get("geojson"))  {
+            geojsonDataTargets = params.get("geojson").split(",");
+        }
+        let vectorTargets = [];
+        if (params.get("vector")) {
+            vectorTargets = params.get("vector").split(",");
+        }
+        if (vectorTargets.length === 0 && geojsonDataTargets.length === 0) {
+            console.error("No data sources found in URL. Noop.");
+            console.error("Use like: localhost:8080/public/?vector=http://localhost:3001/services/ia/naps/tiles/{z}/{x}/{y}.pbf,http://localhost:z/services/ia/laps/tiles/{z}/{x}/{y}.pbf")
+        }
         // split targets by comma and iterate the items
         for (let target of geojsonDataTargets) {
 
-            console.debug("target", target);
+            console.debug("geojson target", target);
 
             // await causes the data to be rendered in the order
             // they were defined in the URL.
@@ -143,6 +343,52 @@ import * as turf from '@turf/turf';
             }).catch(err => {
                 console.error(err);
             });
+        }
+        for (let target of vectorTargets) {
+            console.debug("vector target", target);
+            // Vector source.
+            map.addSource(target, {
+                'type': 'vector',
+                'tiles': [target],
+                'minzoom': 1,
+                'maxzoom': 18
+            });
+            // Circle layer.
+            map.addLayer({
+                'id': `layer-circle-${target}`,
+                'source': target,
+                'source-layer': 'naps',
+                'type': 'circle',
+                'paint': paintFor('circle'),
+                filter: [
+                    'all',
+                    // [ 'has', 'point_count'],
+                    // [ '>', 'point_count', 30],
+                    ["has", "Count"],
+                    [">", "Count", 1],
+                    // [">", "Duration", 60],
+                ]
+            });
+            // For vector sources, sourceLayer is required.
+            addHoverState(target, `layer-circle-${target}`);
+            addInspectPopup(`layer-circle-${target}`);
+            // Line layer.
+            map.addLayer({
+                'id': `layer-line-${target}`,
+                'source': target,
+                'source-layer': 'laps',
+                'type': 'line',
+                'paint': paintFor('line'),
+                'filter': [
+                    'all',
+                    // ['>=', 'Speed', 1],
+                    // ['>', 'Duration', 60],
+                    // ['!=', 'Activity', 'Stationary'],
+                    // ['!=', 'Activity', 'Unknown'],
+                ]
+            });
+            addHoverState(target, `layer-line-${target}`);
+            addInspectPopup(`layer-line-${target}`);
         }
 
 
