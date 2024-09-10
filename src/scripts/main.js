@@ -100,15 +100,15 @@ import * as turf from '@turf/turf';
                         '#000000',
                     ],
                     'circle-opacity': 1,
-                    // 'circle-radius': 2,
-                    'circle-radius': [
-                        "interpolate",
-                        ["exponential", 0.9999],
-                        // ["get", "Count"],
-                        ["get", "Duration"],
-                        1, 2,
-                        60 * 60 * 8, 20,
-                    ],
+                    'circle-radius': 2,
+                    // 'circle-radius': [
+                    //     "interpolate",
+                    //     ["exponential", 0.9999],
+                    //     // ["get", "Count"],
+                    //     ["get", "Duration"],
+                    //     1, 2,
+                    //     60 * 60 * 8, 20,
+                    // ],
                     // 'circle-radius': [
                     //     'case',
                     //     ['==', ['get', 'IsTrip'], true], 2,
@@ -353,19 +353,25 @@ import * as turf from '@turf/turf';
                 'minzoom': 1,
                 'maxzoom': 18
             });
+
             // Circle layer.
+            // Get source layer from target URL.
+            // It is index=5 in the URL path, splitting on '/'s.
+            // http://localhost:3001/services/ia/naps/tiles/{z}/{x}/{y}.pbf => 'naps'
+            // http://localhost:3001/services/ia/valid/tiles/{z}/{x}/{y}.pbf => 'valid'
+            const sourceLayer = target.split("/")[5];
             map.addLayer({
                 'id': `layer-circle-${target}`,
                 'source': target,
-                'source-layer': 'naps',
+                'source-layer': sourceLayer,
                 'type': 'circle',
                 'paint': paintFor('circle'),
                 filter: [
                     'all',
                     // [ 'has', 'point_count'],
                     // [ '>', 'point_count', 30],
-                    ["has", "Count"],
-                    [">", "Count", 1],
+                    // ["has", "Count"],
+                    // [">", "Count", 1],
                     // [">", "Duration", 60],
                 ]
             });
@@ -385,6 +391,7 @@ import * as turf from '@turf/turf';
                     // ['>', 'Duration', 60],
                     // ['!=', 'Activity', 'Stationary'],
                     // ['!=', 'Activity', 'Unknown'],
+                    // ['<', 'AverageAccuracy', 20],
                 ]
             });
             addHoverState(target, `layer-line-${target}`);
