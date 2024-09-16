@@ -100,7 +100,7 @@ import * as turf from '@turf/turf';
                         '#000000',
                     ],
                     'circle-opacity': 1,
-                    'circle-radius': 2,
+                    'circle-radius': 4,
                     // 'circle-radius': [
                     //     "interpolate",
                     //     ["exponential", 0.9999],
@@ -128,7 +128,7 @@ import * as turf from '@turf/turf';
                         'Running', '#028532',
                         'Bike', '#3112f6',
                         'Automotive', '#d670fa',
-                        'Unknown', '#000000',
+                        'Unknown', '#444444',
                         '#888888',
                     ],
                     'line-width': 4,
@@ -356,46 +356,83 @@ import * as turf from '@turf/turf';
 
             // Circle layer.
             // Get source layer from target URL.
+            // This 'source layer' follows the conventional name scheme from tippecanoe.
             // It is index=5 in the URL path, splitting on '/'s.
             // http://localhost:3001/services/ia/naps/tiles/{z}/{x}/{y}.pbf => 'naps'
             // http://localhost:3001/services/ia/valid/tiles/{z}/{x}/{y}.pbf => 'valid'
             const sourceLayer = target.split("/")[5];
-            map.addLayer({
-                'id': `layer-circle-${target}`,
-                'source': target,
-                'source-layer': sourceLayer,
-                'type': 'circle',
-                'paint': paintFor('circle'),
-                filter: [
-                    'all',
-                    // [ 'has', 'point_count'],
-                    // [ '>', 'point_count', 30],
-                    // ["has", "Count"],
-                    // [">", "Count", 1],
-                    // [">", "Duration", 60],
-                ]
-            });
-            // For vector sources, sourceLayer is required.
-            addHoverState(target, `layer-circle-${target}`);
-            addInspectPopup(`layer-circle-${target}`);
-            // Line layer.
-            map.addLayer({
-                'id': `layer-line-${target}`,
-                'source': target,
-                'source-layer': 'laps',
-                'type': 'line',
-                'paint': paintFor('line'),
-                'filter': [
-                    'all',
-                    // ['>=', 'Speed', 1],
-                    // ['>', 'Duration', 60],
-                    // ['!=', 'Activity', 'Stationary'],
-                    // ['!=', 'Activity', 'Unknown'],
-                    // ['<', 'AverageAccuracy', 20],
-                ]
-            });
-            addHoverState(target, `layer-line-${target}`);
-            addInspectPopup(`layer-line-${target}`);
+
+            // Static points (naps, valid) should be represented as circles.
+            if (sourceLayer === 'naps') {
+                // This adds a 'circle' layer for laps.
+                map.addLayer({
+                    'id': `layer-circle-naps-${target}`,
+                    'source': target,
+                    'source-layer': sourceLayer,
+                    'type': 'circle',
+                    'paint': paintFor('circle'),
+                    filter: [
+                        'all',
+                        // [ 'has', 'point_count'],
+                        [ '>', 'point_count', 30],
+                        // ["has", "Count"],
+                        // [">", "Count", 1],
+                        // [">", "Duration", 60],
+                    ]
+                });
+
+                // For vector sources, sourceLayer is required.
+                addHoverState(target, `layer-circle-naps-${target}`);
+                addInspectPopup(`layer-circle-naps-${target}`);
+            } else if (sourceLayer === 'valid') {
+                // This adds a 'circle' layer for laps.
+                let _paint = paintFor('circle');
+                _paint["circle-color"] = "#888888";
+                _paint["circle-opacity"] = 0.8;
+                _paint["circle-radius"] = 2;
+                map.addLayer({
+                    'id': `layer-circle-valid-${target}`,
+                    'source': target,
+                    'source-layer': sourceLayer,
+                    'type': 'circle',
+                    'paint': _paint,
+                    filter: [
+                        'all',
+                        // [ 'has', 'point_count'],
+                        // [ '>', 'point_count', 30],
+                        // ["has", "Count"],
+                        // [">", "Count", 1],
+                        // [">", "Duration", 60],
+                    ]
+                });
+                // For vector sources, sourceLayer is required.
+                addHoverState(target, `layer-circle-valid-${target}`);
+                addInspectPopup(`layer-circle-valid-${target}`);
+            } else {
+                // Line layer.
+                // Note: that it might be useful to also represent the comprising points
+                // on the line as individual points in order to visualize the outcome
+                // of any simplification logic.
+                // TODO: add circle layer too?
+
+                map.addLayer({
+                    'id': `layer-line-${target}`,
+                    'source': target,
+                    'source-layer': 'laps',
+                    'type': 'line',
+                    'paint': paintFor('line'),
+                    'filter': [
+                        'all',
+                        // ['>=', 'Speed', 1],
+                        // ['>', 'Duration', 60],
+                        // ['!=', 'Activity', 'Stationary'],
+                        // ['!=', 'Activity', 'Unknown'],
+                        // ['<', 'AverageAccuracy', 20],
+                    ]
+                });
+                addHoverState(target, `layer-line-${target}`);
+                addInspectPopup(`layer-line-${target}`);
+            }
         }
 
 

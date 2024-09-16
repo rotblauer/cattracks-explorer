@@ -1,3 +1,19 @@
+# cattracks-explorer
+
+Example URIs.
+
+http://localhost:8080/public/?vector=http://localhost:3001/services/ia/naps/tiles/{z}/{x}/{y}.pbf,http://localhost:3001/services/ia/laps/tiles/{z}/{x}/{y}.pbf
+
+
+Opinions.
+
+`naps` and `laps` in the `/services` path are _special_.
+
+Naps are painted as `circle`s. Laps are painted as `line`s.
+
+
+
+
 # live-reload-vanilla-website-template
 
 Starter template to build a website without a front-end framework but making use of Webpack to support writing modern JavaScript (ES6+), including ES Modules and Sass.
