@@ -232,6 +232,13 @@ import * as turf from '@turf/turf';
         map.on('mouseleave', sourceLayer, () => {
             console.debug('mouseleave', sourceLayer);
             if (hoveredStateId) {
+                let checkFeatureState = map.getFeatureState({
+                    source: sourceId,
+                    sourceLayer: sourceLayer,
+                    id: hoveredStateId,
+                });
+                console.debug('checkFeatureState-unhover', hoveredStateId, sourceId, sourceLayer, checkFeatureState);
+
                 map.setFeatureState(
                     {
                         source: sourceId,
