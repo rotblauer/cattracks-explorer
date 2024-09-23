@@ -99,8 +99,17 @@ import * as turf from '@turf/turf';
                         ['==', ['get', 'IsTrip'], false], '#FF0000',
                         '#000000',
                     ],
-                    'circle-opacity': 1,
-                    'circle-radius': 4,
+                    'circle-opacity': 0.5,
+                    // 'circle-radius': 4,
+                    'circle-radius': [
+                        'case',
+                        ['<', ['get', 'Duration'], 60 * 10], 2,
+                        ['<', ['get', 'Duration'], 60 * 60], 4,
+                        ['<', ['get', 'Duration'], 60 * 60 * 8], 6,
+                        ['<', ['get', 'Duration'], 60 * 60 * 24], 8,
+                        ['<', ['get', 'Duration'], 60 * 60 * 72], 10,
+                        4,
+                    ],
                     // 'circle-radius': [
                     //     "interpolate",
                     //     ["exponential", 0.9999],
@@ -131,11 +140,14 @@ import * as turf from '@turf/turf';
                         'Unknown', '#444444',
                         '#888888',
                     ],
-                    'line-width': 4,
+                    // 'line-width': 4,
+                    'line-width': [
+                        'case',
+                        ['boolean', ['feature-state', 'hover'], false], 8, 4, // HOVER DOES NOT WORK
+                    ],
                     'line-opacity': [
                         'case',
-                        ['boolean', ['feature-state', 'hover'], false], 1,
-                        0.8
+                        ['boolean', ['feature-state', 'hover'], false], 1, 0.5,
                     ]
 
                     // 'line-gap-width': 2,
@@ -158,52 +170,80 @@ import * as turf from '@turf/turf';
     let hoveredStateId = null;
 
     function addHoverState(sourceId, sourceLayer) {
+
         console.debug("addHoverState", sourceId, sourceLayer);
+
+        if (typeof sourceId === 'undefined' || sourceId === null ) {
+            console.error('the sourceId parameter is required');
+            return;
+        }
+
+        if (typeof sourceLayer === 'undefined' || sourceLayer === null ) {
+            console.error('the sourceLayer parameter is required');
+            return;
+        }
+
         // sourceLayer: sourceLayer ? sourceLayer : null
-        map.on('mouseenter', sourceId, (e) => {
+        // map.on('mousemove', sourceLayer, (e) => {
+        map.on('mouseenter', sourceLayer, (e) => {
             console.debug("hoverState mouse ENTER", e, hoveredStateId);
             if (e.features.length > 0) {
+                console.debug("hoverState mouse ENTER", "feature.0", e.features[0]);
                 if (hoveredStateId) {
+                    console.debug("unsetting existing hover");
                     map.setFeatureState(
                         {
                             source: sourceId,
-                            // id: hoveredStateId,
+                            sourceLayer: sourceLayer,
+                            id: hoveredStateId,
                         },
                         {hover: false}
                     );
                 }
-                if (typeof e.features[0].properties.id === "undefined") {
-                    e.features[0].properties.id = e.features[0].properties.UUID + e.features[0].properties.Time;
-                }
-                hoveredStateId = e.features[0].properties.UUID + e.features[0].properties.Time;
-                map.setFeatureState(
-                    // FIXME: There is no 'id' for the feature?
-                    // That's an arbitrary but conventional property for uniquely identifying features.
-                    // It would be sweet if I could use the UUID+Time of the feature instead,
-                    // but can't.
-                    {
+                hoveredStateId = e.features[0].id;
+                if (hoveredStateId) {
+                    // only set hover if the id is well defined
+                    // ... but is it UNIQUE? across tiles? https://gis.stackexchange.com/a/331256 (see HOVER DOES NOT WORK)
+                    let checkFeatureState = map.getFeatureState({
                         source: sourceId,
-                        // id: hoveredStateId,
-                    },
-                    {hover: true}
-                );
-                console.debug("hovered", hoveredStateId);
+                        sourceLayer: sourceLayer,
+                        id: hoveredStateId,
+                    });
+                    console.debug('checkFeatureState', e.features[0].id, sourceId, sourceLayer, checkFeatureState);
+
+                    map.setFeatureState(
+                        {
+                            source: sourceId,
+                            sourceLayer: sourceLayer,
+                            id: hoveredStateId,
+                        },
+                        {hover: true}
+                    );
+                    console.debug("hovered", hoveredStateId);
+                }
+
+
             }
             map.getCanvas().style.cursor = 'pointer';
         });
-        map.on('mouseleave', sourceId, () => {
-            map.getCanvas().style.cursor = '';
+        // map.on('mouseout', sourceId, (e) => {
+        //     console.debug("mouseout", e);
+        // })
+        map.on('mouseleave', sourceLayer, () => {
+            console.debug('mouseleave', sourceLayer);
             if (hoveredStateId) {
                 map.setFeatureState(
                     {
                         source: sourceId,
-                        // id: hoveredStateId,
+                        sourceLayer: sourceLayer,
+                        id: hoveredStateId,
                     },
                     {hover: false}
                 );
                 console.debug("unhovered", hoveredStateId);
             }
             hoveredStateId = null;
+            map.getCanvas().style.cursor = '';
         });
     }
 
@@ -254,7 +294,9 @@ import * as turf from '@turf/turf';
                 coordinates = feat.geometry.coordinates.slice();
             }
             console.debug(feat.geometry.type, coordinates);
-            const description = JSON.stringify(e.features[0].properties, null, '<br>');
+            let props = e.features[0].properties;
+            props.id = e.features[0].id;
+            const description = JSON.stringify(props, null, '<br>');
 
             // Ensure that if the map is zoomed out such that multiple
             // copies of the feature are visible, the popup appears
@@ -351,7 +393,8 @@ import * as turf from '@turf/turf';
                 'type': 'vector',
                 'tiles': [target],
                 'minzoom': 1,
-                'maxzoom': 18
+                'maxzoom': 18,
+                // 'promoteId': 'Time',
             });
 
             // Circle layer.
@@ -374,9 +417,9 @@ import * as turf from '@turf/turf';
                     filter: [
                         'all',
                         // [ 'has', 'point_count'],
-                        [ '>', 'point_count', 30],
+                        // [ '>', 'point_count', 30],
                         // ["has", "Count"],
-                        // [">", "Count", 1],
+                        [">", "Count", 100],
                         // [">", "Duration", 60],
                     ]
                 });
