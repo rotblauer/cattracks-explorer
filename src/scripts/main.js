@@ -143,11 +143,13 @@ import * as turf from '@turf/turf';
                     // 'line-width': 4,
                     'line-width': [
                         'case',
-                        ['boolean', ['feature-state', 'hover'], false], 8, 4, // HOVER DOES NOT WORK
+                        ['boolean', ['feature-state', 'hover'], false], 8,  // HOVER DOES NOT WORK
+                        4,
                     ],
                     'line-opacity': [
                         'case',
-                        ['boolean', ['feature-state', 'hover'], false], 1, 0.5,
+                        ['boolean', ['feature-state', 'hover'], false], 1,
+                        0.5,
                     ]
 
                     // 'line-gap-width': 2,
@@ -189,6 +191,9 @@ import * as turf from '@turf/turf';
             console.debug("hoverState mouse ENTER", e, hoveredStateId);
             if (e.features.length > 0) {
                 console.debug("hoverState mouse ENTER", "feature.0", e.features[0]);
+                // hoverStateId is an externally-scoped variable which is
+                // also accessed by the mouseleave event, which sets it to null
+                // when a feature is unhovered.
                 if (hoveredStateId) {
                     console.debug("unsetting existing hover");
                     map.setFeatureState(
@@ -199,17 +204,18 @@ import * as turf from '@turf/turf';
                         },
                         {hover: false}
                     );
+                    console.debug("setFeatureState [hover: false]", sourceId, sourceLayer, hoveredStateId);
                 }
                 hoveredStateId = e.features[0].id;
                 if (hoveredStateId) {
                     // only set hover if the id is well defined
                     // ... but is it UNIQUE? across tiles? https://gis.stackexchange.com/a/331256 (see HOVER DOES NOT WORK)
-                    let checkFeatureState = map.getFeatureState({
+                    let gotFeatureState = map.getFeatureState({
                         source: sourceId,
                         sourceLayer: sourceLayer,
                         id: hoveredStateId,
                     });
-                    console.debug('checkFeatureState', e.features[0].id, sourceId, sourceLayer, checkFeatureState);
+                    console.debug('gotFeatureState', sourceId, sourceLayer, hoveredStateId, e.features[0].id, gotFeatureState);
 
                     map.setFeatureState(
                         {
@@ -219,7 +225,13 @@ import * as turf from '@turf/turf';
                         },
                         {hover: true}
                     );
-                    console.debug("hovered", hoveredStateId);
+                    console.debug("setFeatureState [hover: true]", sourceId, sourceLayer, hoveredStateId);
+                    gotFeatureState = map.getFeatureState({
+                        source: sourceId,
+                        sourceLayer: sourceLayer,
+                        id: hoveredStateId,
+                    });
+                    console.debug('gotFeatureState', sourceId, sourceLayer, hoveredStateId, e.features[0].id, gotFeatureState);
                 }
 
 
@@ -232,12 +244,12 @@ import * as turf from '@turf/turf';
         map.on('mouseleave', sourceLayer, () => {
             console.debug('mouseleave', sourceLayer);
             if (hoveredStateId) {
-                let checkFeatureState = map.getFeatureState({
+                let gotFeatureState = map.getFeatureState({
                     source: sourceId,
                     sourceLayer: sourceLayer,
                     id: hoveredStateId,
                 });
-                console.debug('checkFeatureState-unhover', hoveredStateId, sourceId, sourceLayer, checkFeatureState);
+                console.debug('gotFeatureState', sourceId, sourceLayer, hoveredStateId, gotFeatureState);
 
                 map.setFeatureState(
                     {
@@ -247,9 +259,10 @@ import * as turf from '@turf/turf';
                     },
                     {hover: false}
                 );
-                console.debug("unhovered", hoveredStateId);
+                console.debug("setFeatureState [hover: false]", sourceId, sourceLayer, hoveredStateId);
             }
             hoveredStateId = null;
+            console.debug("hoveredStateId = null", sourceId, sourceLayer, hoveredStateId);
             map.getCanvas().style.cursor = '';
         });
     }
@@ -473,11 +486,13 @@ import * as turf from '@turf/turf';
                     'paint': paintFor('line'),
                     'filter': [
                         'all',
+                        ['>', 'PointCount', 30],
+                        ['<', 'Duration', 86000],
                         // ['>=', 'Speed', 1],
                         // ['>', 'Duration', 60],
                         // ['!=', 'Activity', 'Stationary'],
                         // ['!=', 'Activity', 'Unknown'],
-                        // ['<', 'AverageAccuracy', 20],
+                        ['<', 'AverageAccuracy', 200],
                     ]
                 });
                 addHoverState(target, `layer-line-${target}`);
