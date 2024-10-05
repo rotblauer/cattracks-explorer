@@ -97,9 +97,17 @@ import * as turf from '@turf/turf';
                         ['boolean', ['feature-state', 'hover'], false], 'yellow',
                         ['==', ['get', 'IsTrip'], true], '#0000FF',
                         ['==', ['get', 'IsTrip'], false], '#FF0000',
-                        '#000000',
+                        '#880000',
                     ],
-                    'circle-opacity': 0.5,
+                    'circle-opacity': [
+                        'case',
+                        ['<', ['get', 'Duration'], 60 * 10], 0.02,
+                        ['<', ['get', 'Duration'], 60 * 60], 0.04,
+                        ['<', ['get', 'Duration'], 60 * 60 * 8], 0.08,
+                        ['<', ['get', 'Duration'], 60 * 60 * 24], 0.16,
+                        ['<', ['get', 'Duration'], 60 * 60 * 72], 0.32,
+                        0.25,
+                    ],
                     // 'circle-radius': 4,
                     'circle-radius': [
                         'case',
@@ -149,7 +157,7 @@ import * as turf from '@turf/turf';
                     'line-opacity': [
                         'case',
                         ['boolean', ['feature-state', 'hover'], false], 1,
-                        0.5,
+                        0.33,
                     ]
 
                     // 'line-gap-width': 2,
