@@ -538,6 +538,7 @@ ${description}
                         ['!=', 'Activity', 'Stationary'],
                         ['>=', 'DistanceAbsolute', 100],
                     ],
+                    // ['==', 'Activity', 'Running'],
                     // ['>=', 'Speed', 1],
                     // ['>', 'Duration', 60],
                     // ['!=', 'Activity', 'Stationary'],
