@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "dev:assets": "webpack --watch",
-    "dev:start": "live-server --open=./public/ --host=localhost --watch=./public/",
+    "dev:start": "live-server --no-browser --open=./public/ --host=localhost --watch=./public/",
     "dev": "concurrently 'yarn:dev:*'",
     "build": "NODE_ENV=production webpack",
     "prepare": "npx crlf --set=LF node_modules/.bin/live-server"
@@ -21,7 +21,7 @@
     "live-server": "^1.2.2",
     "mini-css-extract-plugin": "^2.7.2",
     "node-sass": "^7.0.0",
-    "postcss": "^8.4.20",
+    "postcss": "8.4.31",
     "postcss-loader": "^7.0.2",
     "postcss-preset-env": "^7.8.0",
     "sass-loader": "^13.2.0",

@@ -91,13 +91,14 @@ import * as turf from '@turf/turf';
         // 'circle-color': "#000000",
         'circle-color': [
             'case',
-            ['boolean', ['feature-state', 'hover'], false], '#FFFF00',
+            ['boolean', ['feature-state', 'hover'], false], '#000000',
             ['==', ['get', 'IsTrip'], true], '#0000FF',
             ['==', ['get', 'IsTrip'], false], '#FF0000',
             '#880000',
         ],
         'circle-opacity': [
             'case',
+            ['boolean', ['feature-state', 'hover'], false], 1,
             ['<', ['get', 'Duration'], 60 * 10], 0.02,
             ['<', ['get', 'Duration'], 60 * 60], 0.04,
             ['<', ['get', 'Duration'], 60 * 60 * 8], 0.08,
@@ -147,7 +148,7 @@ import * as turf from '@turf/turf';
         // 'line-width': 4,
         'line-width': [
             'case',
-            ['boolean', ['feature-state', 'hover'], false], 8,  // HOVER DOES NOT WORK
+            ['boolean', ['feature-state', 'hover'], false], 4,
             4,
         ],
         'line-opacity': [
@@ -182,23 +183,23 @@ import * as turf from '@turf/turf';
 
     let hoveredStateId = null;
 
-    function addHoverState(sourceId, sourceLayer) {
+    function addHoverState(sourceId, sourceLayer, targetLayer) {
 
-        console.debug("addHoverState", sourceId, sourceLayer);
+        console.debug("addHoverState", sourceId, sourceLayer, targetLayer);
 
         if (typeof sourceId === 'undefined' || sourceId === null ) {
             console.error('the sourceId parameter is required');
             return;
         }
 
-        if (typeof sourceLayer === 'undefined' || sourceLayer === null ) {
+        if (typeof targetLayer === 'undefined' || targetLayer === null ) {
             console.error('the sourceLayer parameter is required');
             return;
         }
 
         // sourceLayer: sourceLayer ? sourceLayer : null
         // map.on('mousemove', sourceLayer, (e) => {
-        map.on('mouseenter', sourceLayer, (e) => {
+        map.on('mousemove', targetLayer, (e) => {
             console.debug("hoverState mouse ENTER", e, hoveredStateId);
             if (e.features.length > 0) {
                 console.debug("hoverState mouse ENTER", "feature.0", e.features[0]);
@@ -215,7 +216,7 @@ import * as turf from '@turf/turf';
                         },
                         {hover: false}
                     );
-                    console.debug("setFeatureState [hover: false]", sourceId, sourceLayer, hoveredStateId);
+                    console.debug("setFeatureState [hover: false]", sourceId, targetLayer, hoveredStateId);
                 }
                 hoveredStateId = e.features[0].id;
                 if (hoveredStateId) {
@@ -226,7 +227,7 @@ import * as turf from '@turf/turf';
                         sourceLayer: sourceLayer,
                         id: hoveredStateId,
                     });
-                    console.debug('gotFeatureState', sourceId, sourceLayer, hoveredStateId, e.features[0].id, gotFeatureState);
+                    console.debug('gotFeatureState', sourceId, targetLayer, hoveredStateId, e.features[0].id, gotFeatureState);
 
                     map.setFeatureState(
                         {
@@ -236,13 +237,13 @@ import * as turf from '@turf/turf';
                         },
                         {hover: true}
                     );
-                    console.debug("setFeatureState [hover: true]", sourceId, sourceLayer, hoveredStateId);
+                    console.debug("setFeatureState [hover: true]", sourceId, targetLayer, hoveredStateId);
                     gotFeatureState = map.getFeatureState({
                         source: sourceId,
                         sourceLayer: sourceLayer,
                         id: hoveredStateId,
                     });
-                    console.debug('gotFeatureState', sourceId, sourceLayer, hoveredStateId, e.features[0].id, gotFeatureState);
+                    console.debug('gotFeatureState', sourceId, targetLayer, hoveredStateId, e.features[0].id, gotFeatureState);
                 }
 
 
@@ -252,15 +253,15 @@ import * as turf from '@turf/turf';
         // map.on('mouseout', sourceId, (e) => {
         //     console.debug("mouseout", e);
         // })
-        map.on('mouseleave', sourceLayer, () => {
-            console.debug('mouseleave', sourceLayer);
+        map.on('mouseleave', targetLayer, () => {
+            console.debug('mouseleave', targetLayer);
             if (hoveredStateId) {
                 let gotFeatureState = map.getFeatureState({
                     source: sourceId,
                     sourceLayer: sourceLayer,
                     id: hoveredStateId,
                 });
-                console.debug('gotFeatureState', sourceId, sourceLayer, hoveredStateId, gotFeatureState);
+                console.debug('gotFeatureState', sourceId, sourceLayer, targetLayer, hoveredStateId, gotFeatureState);
 
                 map.setFeatureState(
                     {
@@ -270,10 +271,10 @@ import * as turf from '@turf/turf';
                     },
                     {hover: false}
                 );
-                console.debug("setFeatureState [hover: false]", sourceId, sourceLayer, hoveredStateId);
+                console.debug("setFeatureState [hover: false]", sourceId, targetLayer, hoveredStateId);
             }
             hoveredStateId = null;
-            console.debug("hoveredStateId = null", sourceId, sourceLayer, hoveredStateId);
+            console.debug("hoveredStateId = null", sourceId, targetLayer, hoveredStateId);
             map.getCanvas().style.cursor = '';
         });
     }
@@ -430,6 +431,7 @@ import * as turf from '@turf/turf';
             //   http://localhost:3001/services/ia/naps/tiles/{z}/{x}/{y}.pbf => 'naps'
             //   http://localhost:3001/services/ia/valid/tiles/{z}/{x}/{y}.pbf => 'valid'
             const sourceID = target.split("/")[4] + '-' + target.split("/")[5]; // => 'rye-naps'
+            const sourceLayer = target.split("/")[5];
 
             // Vector source.
             map.addSource(sourceID, {
@@ -446,9 +448,9 @@ import * as turf from '@turf/turf';
                 id: `layer-${sourceID}`,
                 source: sourceID,
                 // 'source-layer' is the NAME of the layer in the source tiles.
-                // By my own convention, these are also the NAMEs of the SERVICE.
+                // By my own convention, these are also the NAMEs of the SERVICEs.
                 // Eg. 'naps', 'laps', 'valid'.
-                'source-layer': sourceID.split("-")[1],
+                'source-layer': sourceLayer,
                 // 'type': 'TODO',
                 // 'paint': paintFor('line'),
                 // 'filter': [
@@ -499,19 +501,25 @@ import * as turf from '@turf/turf';
                     'all',
                     ['>', 'PointCount', 30],
                     ['<', 'Duration', 86000],
+                    ['<', 'AverageAccuracy', 25],
+                    [
+                        'any',
+                        ['!=', 'Activity', 'Stationary'],
+                        ['>=', 'DistanceAbsolute', 100],
+                    ],
                     // ['>=', 'Speed', 1],
                     // ['>', 'Duration', 60],
                     // ['!=', 'Activity', 'Stationary'],
                     // ['!=', 'Activity', 'Unknown'],
-                    ['<', 'AverageAccuracy', 35],
+                    // ['<', 'AverageAccuracy', 35],
                 ];
             }
 
             map.addLayer(addLayerObject);
 
             // For vector sources, sourceLayer is required.
-            addHoverState(sourceID, `layer-${sourceID}`);
-            addInspectPopup(`layer-${sourceID}`);
+            addHoverState(sourceID, sourceLayer, addLayerObject.id);
+            addInspectPopup(addLayerObject.id);
         }
 
 
