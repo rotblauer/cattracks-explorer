@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl
 // import * as $ from 'jquery'
 // import 'maplibre-gl/dist/maplibre-gl.css';
 import * as turf from '@turf/turf';
+import {secondsToHms} from "./utils";
 
 // const {gzip, ungzip} = require('node-gzip');
 // import {ungzip} from "node-gzip";
@@ -133,29 +134,54 @@ import * as turf from '@turf/turf';
         // 'line-width': 2,
     };
 
+    //
     const paintLine = {
         'line-color': [
-            'match',
-            ['get', 'Activity'],
-            'Stationary', '#f32d2d',
-            'Walking', '#e78719',
-            'Running', '#028532',
-            'Bike', '#3112f6',
-            'Automotive', '#d670fa',
-            'Unknown', '#444444',
-            '#888888',
-        ],
-        // 'line-width': 4,
-        'line-width': [
             'case',
-            ['boolean', ['feature-state', 'hover'], false], 4,
-            4,
+            ['boolean', ['feature-state', 'hover'], false],
+            '#000000',
+            // [
+            //     'match',
+            //     ['get', 'Activity'],
+            //     'Stationary', '#f45656',
+            //     'Walking', '#e89d46',
+            //     'Running', '#1f8144',
+            //     'Bike', '#634bfa',
+            //     'Automotive', '#e2a0fa',
+            //     'Unknown', '#777777',
+            //     '#fbfbfb',
+            // ],
+            [
+                'match',
+                ['get', 'Activity'],
+                'Stationary', '#f32d2d',
+                'Walking', '#e78719',
+                'Running', '#028532',
+                'Bike', '#3112f6',
+                'Automotive', '#d670fa',
+                'Unknown', '#444444',
+                '#888888',
+            ],
         ],
+        // Watch out for line-width because it can interact with the cursor
+        // and can obscure adjacent features.
+        'line-width': 2,
+        // 'line-width': [
+        //     'case',
+        //     ['boolean', ['feature-state', 'hover'], false], 2,
+        //     2,
+        // ],
         'line-opacity': [
             'case',
             ['boolean', ['feature-state', 'hover'], false], 1,
             0.33,
-        ]
+        ],
+        // 'line-gap-width': [
+        //     'case',
+        //     ['boolean', ['feature-state', 'hover'], false], 2,
+        //     0,
+        // ],
+        // 'line-pattern': 'pattern-dot'
 
         // 'line-gap-width': 2,
         // 'line-cap': 'round',
@@ -181,101 +207,85 @@ import * as turf from '@turf/turf';
       popup.remove();
     });
 
-    let hoveredStateId = null;
+    // let hoveredRegistry = [];
+
+    function setFeatureHoverState(sourceId, sourceLayer, targetLayer, feature) {
+        // hoveredRegistry.push(feature.id);
+        map.setFeatureState({
+            source: sourceId,
+            sourceLayer: sourceLayer,
+            id: feature.id,
+        }, {hover: true});
+    }
+
+    function clearHoveredRegistry(sourceId, sourceLayer) {
+        // for (let i = hoveredRegistry.length - 1; i >= 0; i--) {
+        //     const spliced = hoveredRegistry.splice(i, 1);
+        //     map.setFeatureState({
+        //         source: sourceId,
+        //         sourceLayer: sourceLayer,
+        //         id: spliced[0],
+        //     }, {hover: false});
+        // }
+
+        // Using the pattern from https://docs.mapbox.com/mapbox-gl-js/example/hover-styles/
+        // yields spuriously sticky hover states on tightly overlapping and dense features.
+        // My 'hoveredRegistry' was a v2 attempt to fix this, but it was not successful.
+        // It attempted to improve on the global hoverStateID pattern by keeping track of
+        // the hovered features in an array. This was not successful.
+        // So now as a working solution we clear the entire feature state for the source/sourceLayer (
+        //   which is vector-friendly, but I'm not sure about GeoJSON type).
+        // This is brute force, and may have unintended consequences if feature states
+        // get used in other ways.
+        map.removeFeatureState({
+            source: sourceId,
+            sourceLayer: sourceLayer,
+        })
+    }
 
     function addHoverState(sourceId, sourceLayer, targetLayer) {
-
-        console.debug("addHoverState", sourceId, sourceLayer, targetLayer);
-
-        if (typeof sourceId === 'undefined' || sourceId === null ) {
-            console.error('the sourceId parameter is required');
-            return;
-        }
-
-        if (typeof targetLayer === 'undefined' || targetLayer === null ) {
-            console.error('the sourceLayer parameter is required');
-            return;
-        }
 
         // sourceLayer: sourceLayer ? sourceLayer : null
         // map.on('mousemove', sourceLayer, (e) => {
         map.on('mousemove', targetLayer, (e) => {
-            console.debug("hoverState mouse ENTER", e, hoveredStateId);
-            if (e.features.length > 0) {
-                console.debug("hoverState mouse ENTER", "feature.0", e.features[0]);
-                // hoverStateId is an externally-scoped variable which is
-                // also accessed by the mouseleave event, which sets it to null
-                // when a feature is unhovered.
-                if (hoveredStateId) {
-                    console.debug("unsetting existing hover");
-                    map.setFeatureState(
-                        {
-                            source: sourceId,
-                            sourceLayer: sourceLayer,
-                            id: hoveredStateId,
-                        },
-                        {hover: false}
-                    );
-                    console.debug("setFeatureState [hover: false]", sourceId, targetLayer, hoveredStateId);
-                }
-                hoveredStateId = e.features[0].id;
-                if (hoveredStateId) {
-                    // only set hover if the id is well defined
-                    // ... but is it UNIQUE? across tiles? https://gis.stackexchange.com/a/331256 (see HOVER DOES NOT WORK)
-                    let gotFeatureState = map.getFeatureState({
-                        source: sourceId,
-                        sourceLayer: sourceLayer,
-                        id: hoveredStateId,
-                    });
-                    console.debug('gotFeatureState', sourceId, targetLayer, hoveredStateId, e.features[0].id, gotFeatureState);
 
-                    map.setFeatureState(
-                        {
-                            source: sourceId,
-                            sourceLayer: sourceLayer,
-                            id: hoveredStateId,
-                        },
-                        {hover: true}
-                    );
-                    console.debug("setFeatureState [hover: true]", sourceId, targetLayer, hoveredStateId);
-                    gotFeatureState = map.getFeatureState({
-                        source: sourceId,
-                        sourceLayer: sourceLayer,
-                        id: hoveredStateId,
-                    });
-                    console.debug('gotFeatureState', sourceId, targetLayer, hoveredStateId, e.features[0].id, gotFeatureState);
-                }
-
-
+            // for each feature in e.features
+            for (let feature of e.features) {
+                // clearHoveredRegistry(sourceId, sourceLayer);
+                setFeatureHoverState(sourceId, sourceLayer, targetLayer, feature);
             }
+
             map.getCanvas().style.cursor = 'pointer';
+
         });
         // map.on('mouseout', sourceId, (e) => {
         //     console.debug("mouseout", e);
         // })
         map.on('mouseleave', targetLayer, () => {
             console.debug('mouseleave', targetLayer);
-            if (hoveredStateId) {
-                let gotFeatureState = map.getFeatureState({
-                    source: sourceId,
-                    sourceLayer: sourceLayer,
-                    id: hoveredStateId,
-                });
-                console.debug('gotFeatureState', sourceId, sourceLayer, targetLayer, hoveredStateId, gotFeatureState);
-
-                map.setFeatureState(
-                    {
-                        source: sourceId,
-                        sourceLayer: sourceLayer,
-                        id: hoveredStateId,
-                    },
-                    {hover: false}
-                );
-                console.debug("setFeatureState [hover: false]", sourceId, targetLayer, hoveredStateId);
-            }
-            hoveredStateId = null;
-            console.debug("hoveredStateId = null", sourceId, targetLayer, hoveredStateId);
+            clearHoveredRegistry(sourceId, sourceLayer);
             map.getCanvas().style.cursor = '';
+            // if (hoveredRegistry) {
+            //     // let gotFeatureState = map.getFeatureState({
+            //     //     source: sourceId,
+            //     //     sourceLayer: sourceLayer,
+            //     //     id: hoveredStateId,
+            //     // });
+            //     // console.debug('gotFeatureState', sourceId, sourceLayer, targetLayer, hoveredStateId, gotFeatureState);
+            //
+            //     map.setFeatureState(
+            //         {
+            //             source: sourceId,
+            //             sourceLayer: sourceLayer,
+            //             id: hoveredRegistry,
+            //         },
+            //         {hover: false}
+            //     );
+            //     console.debug("setFeatureState [hover: false]", sourceId, targetLayer, hoveredRegistry);
+            // }
+            // hoveredRegistry = null;
+            // console.debug("hoveredStateId = null", sourceId, targetLayer, hoveredRegistry);
+
         });
     }
 
@@ -287,7 +297,7 @@ import * as turf from '@turf/turf';
 
     // https://maplibre.org/maplibre-gl-js/docs/examples/popup-on-hover/
     function addInspectPopup(sourceLayerID) {
-        map.on('mouseenter', sourceLayerID, (e) => {
+        map.on('mousemove', sourceLayerID, (e) => {
 
             // // https://maplibre.org/maplibre-gl-js/docs/examples/hover-styles/
             // if (e.features.length > 0) {
@@ -309,47 +319,68 @@ import * as turf from '@turf/turf';
 
              */
             // Change the cursor style as a UI indicator.
-            map.getCanvas().style.cursor = 'pointer';
+            // map.getCanvas().style.cursor = 'pointer';
+            let myHTML = ``;
+
+            let dedupeFeatures = [];
+            e.features.sort((a, b) => {
+                return b.properties.UnixTime - a.properties.UnixTime;
+            });
+            for (let feature of e.features) {
+                if (dedupeFeatures.includes(feature.id)) {
+                    continue;
+                }
+                dedupeFeatures.push(feature.id);
+                let props = feature.properties;
+                props.id = feature.id; // amend for debug
+
+                const description = JSON.stringify(props, null, '<br>');
+                myHTML += `<code>
+${description}
+</code>
+<p style="font-size: larger;">${secondsToHms(feature.properties.Duration)}</p>
+`;
+            }
 
             // Is it a line or a point?
-            console.debug("e.features[0].geometry", e.features[0].geometry);
-            let coordinates = [0,0];
-            const feat = e.features[0];
-            if (feat.geometry.type === "MultiLineString") {
-                // Get LAST-LAST coordinates from the list.
-                const lastLine = feat.geometry.coordinates[feat.geometry.coordinates.length -1];
-                coordinates = lastLine[lastLine.length-1].slice();
-            } else if (feat.geometry.type === "LineString") {
-                // Get LAST coordinates from the list.
-                coordinates = feat.geometry.coordinates[feat.geometry.coordinates.length -1].slice();
-            } else if (feat.geometry.type === "Point") {
-                coordinates = feat.geometry.coordinates.slice();
-            }
-            console.debug(feat.geometry.type, coordinates);
-            let props = e.features[0].properties;
-            props.id = e.features[0].id;
-            const description = JSON.stringify(props, null, '<br>');
+            // console.debug("e.features[0].geometry", e.features[0].geometry);
+            // let coordinates = [0,0];
+            // const feat = e.features[0];
+            // if (feat.geometry.type === "MultiLineString") {
+            //     // Get LAST-LAST coordinates from the list.
+            //     const lastLine = feat.geometry.coordinates[feat.geometry.coordinates.length -1];
+            //     coordinates = lastLine[lastLine.length-1].slice();
+            // } else if (feat.geometry.type === "LineString") {
+            //     // Get LAST coordinates from the list.
+            //     coordinates = feat.geometry.coordinates[feat.geometry.coordinates.length -1].slice();
+            // } else if (feat.geometry.type === "Point") {
+            //     coordinates = feat.geometry.coordinates.slice();
+            // }
+            // console.debug(feat.geometry.type, coordinates);
 
-            // Ensure that if the map is zoomed out such that multiple
-            // copies of the feature are visible, the popup appears
-            // over the copy being pointed to.
-            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-            }
+
+            // // Ensure that if the map is zoomed out such that multiple
+            // // copies of the feature are visible, the popup appears
+            // // over the copy being pointed to.
+            // while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+            //     coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            // }
 
             // Populate the popup and set its coordinates
             // based on the feature found.
             // popup.setLngLat(coordinates).setHTML(description).addTo(map);
             // popup.setHTML(description).addTo(map);
+
+            $featureDebugWindow.html(myHTML);
             $featureDebugWindow.show();
-            $featureDebugWindow.html(`<code>${description}</code>`);
         });
 
         map.on('mouseleave', sourceLayerID, () => {
             map.getCanvas().style.cursor = '';
+            $featureDebugWindow.html('');
+
             setTimeout(() => {
                 // popup.remove(); // from map
-
             }, 500);
             // $featureDebugWindow.hide();
 
