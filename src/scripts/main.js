@@ -262,7 +262,7 @@ import {secondsToHms} from "./utils";
         //     console.debug("mouseout", e);
         // })
         map.on('mouseleave', targetLayer, () => {
-            console.debug('mouseleave', targetLayer);
+            // console.debug('mouseleave', targetLayer);
             clearHoveredRegistry(sourceId, sourceLayer);
             map.getCanvas().style.cursor = '';
             // if (hoveredRegistry) {
