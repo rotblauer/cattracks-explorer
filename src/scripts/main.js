@@ -100,20 +100,20 @@ import {secondsToHms} from "./utils";
         'circle-opacity': [
             'case',
             ['boolean', ['feature-state', 'hover'], false], 1,
-            ['<', ['get', 'Duration'], 60 * 10], 0.02,
-            ['<', ['get', 'Duration'], 60 * 60], 0.04,
-            ['<', ['get', 'Duration'], 60 * 60 * 8], 0.08,
-            ['<', ['get', 'Duration'], 60 * 60 * 24], 0.16,
-            ['<', ['get', 'Duration'], 60 * 60 * 72], 0.32,
+            ['<', ['get', 'Duration'], 60 * 10], 0.1,
+            ['<', ['get', 'Duration'], 60 * 60], 0.2,
+            ['<', ['get', 'Duration'], 60 * 60 * 8], 0.4,
+            ['<', ['get', 'Duration'], 60 * 60 * 24], 0.5,
+            ['<', ['get', 'Duration'], 60 * 60 * 72], 0.66,
             0.25,
         ],
         'circle-radius': [
             'case',
-            ['<', ['get', 'Duration'], 60 * 10], 2,
-            ['<', ['get', 'Duration'], 60 * 60], 4,
-            ['<', ['get', 'Duration'], 60 * 60 * 8], 6,
-            ['<', ['get', 'Duration'], 60 * 60 * 24], 8,
-            ['<', ['get', 'Duration'], 60 * 60 * 72], 10,
+            ['<', ['get', 'Duration'], 60 * 10], 4,
+            ['<', ['get', 'Duration'], 60 * 60], 6,
+            ['<', ['get', 'Duration'], 60 * 60 * 8], 8,
+            ['<', ['get', 'Duration'], 60 * 60 * 24], 10,
+            ['<', ['get', 'Duration'], 60 * 60 * 72], 12,
             4,
         ],
         // 'circle-radius': [
@@ -320,7 +320,7 @@ import {secondsToHms} from "./utils";
              */
             // Change the cursor style as a UI indicator.
             // map.getCanvas().style.cursor = 'pointer';
-            let myHTML = ``;
+            let myHTML = `<h3>${e.features.length} features</h3>`;
 
             let dedupeFeatures = [];
             e.features.sort((a, b) => {
@@ -455,6 +455,9 @@ ${description}
         }
         for (let target of vectorTargets) {
             console.debug("DEBUG: Vector target.", target);
+            if (target === "") {
+                continue;
+            }
             // Get a source layer name from target URL, eg. 'naps' or 'laps', as in 'http://localhost:3001/services/rye/{naps,laps}/tiles/...'.
             // Deriving this name from the target ASSUMES a conventional URI scheme from TIPPECANOE.
             // It is index=5 in the URL path, splitting on '/'s.
@@ -503,7 +506,7 @@ ${description}
                     [">", "Count", 100],
                 ];
 
-            } else if (/valid/.test(target)) {
+            } else if (/(valid|tripdetected)/.test(target)) {
 
                 addLayerObject.type = 'circle';
                 addLayerObject.paint = paintFor('circle');
@@ -532,13 +535,17 @@ ${description}
                     'all',
                     ['>', 'PointCount', 30],
                     ['<', 'Duration', 86000],
+                    ['>', 'Duration', 120],
                     ['<', 'AverageAccuracy', 25],
                     [
                         'any',
                         ['!=', 'Activity', 'Stationary'],
                         ['>=', 'DistanceAbsolute', 100],
+                        ['>=', 'DistanceTraversed', 250],
                     ],
-                    // ['==', 'Activity', 'Running'],
+
+                    // ['==', 'Activity', 'Bike'],
+
                     // ['>=', 'Speed', 1],
                     // ['>', 'Duration', 60],
                     // ['!=', 'Activity', 'Stationary'],
