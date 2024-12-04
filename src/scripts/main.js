@@ -1,3 +1,11 @@
+/*
+
+
+http://localhost:8080/public/?vector=http://localhost:3001/services/ia/valid/tiles/{z}/{x}/{y}.pbf,http://localhost:3001/services/ia/naps/tiles/{z}/{x}/{y}.pbf,http://localhost:3001/services/ia/laps/tiles/{z}/{x}/{y}.pbf,http://localhost:3001/services/ia/tripdetected/tiles/{z}/{x}/{y}.pbf
+
+
+ */
+
 import maplibregl from 'maplibre-gl'; // or "const mapboxgl = require('mapbox-gl');"
 // import * as $ from 'jquery'
 // import 'maplibre-gl/dist/maplibre-gl.css';
@@ -43,7 +51,9 @@ import {secondsToHms} from "./utils";
     const map = new maplibregl.Map({
         container: 'map',
         style:
-            'https://api.maptiler.com/maps/dataviz/style.json?key=XrsT3wNTcIE6gABWxyV5',
+
+        // 'https://api.maptiler.com/maps/dataviz/style.json?key=XrsT3wNTcIE6gABWxyV5',
+            'https://api.maptiler.com/maps/topo-v2/style.json?key=XrsT3wNTcIE6gABWxyV5',
         center: getCenterOfMap(),
         zoom: getZoom(),
     });
@@ -77,6 +87,7 @@ import {secondsToHms} from "./utils";
         '#000000',
     ];
     let lastColorIndex = 0;
+
     function getNextColor() {
         const color = colors[lastColorIndex];
         lastColorIndex++;
@@ -165,7 +176,7 @@ import {secondsToHms} from "./utils";
         ],
         // Watch out for line-width because it can interact with the cursor
         // and can obscure adjacent features.
-        'line-width': 2,
+        'line-width': 6,
         // 'line-width': [
         //     'case',
         //     ['boolean', ['feature-state', 'hover'], false], 2,
@@ -174,7 +185,8 @@ import {secondsToHms} from "./utils";
         'line-opacity': [
             'case',
             ['boolean', ['feature-state', 'hover'], false], 1,
-            0.33,
+            // 0.33,
+            0.5,
         ],
         // 'line-gap-width': [
         //     'case',
@@ -204,7 +216,7 @@ import {secondsToHms} from "./utils";
     });
     popup.on("close", (e) => console.debug("popup closed", e));
     popup.on("click", (e) => {
-      popup.remove();
+        popup.remove();
     });
 
     // let hoveredRegistry = [];
@@ -320,11 +332,11 @@ import {secondsToHms} from "./utils";
              */
             // Change the cursor style as a UI indicator.
             // map.getCanvas().style.cursor = 'pointer';
-            let myHTML = `<h3>${e.features.length} features</h3>`;
+            let myHTML = `<h2>${sourceLayerID}</h2><h3>${e.features.length} features</h3>`;
 
             let dedupeFeatures = [];
             e.features.sort((a, b) => {
-                return b.properties.UnixTime - a.properties.UnixTime;
+                return b.properties.Time_Start_Unix - a.properties.Time_Start_Unix;
             });
             for (let feature of e.features) {
                 if (dedupeFeatures.includes(feature.id)) {
@@ -371,7 +383,9 @@ ${description}
             // popup.setLngLat(coordinates).setHTML(description).addTo(map);
             // popup.setHTML(description).addTo(map);
 
-            $featureDebugWindow.html(myHTML);
+            // const appendedHTML = $featureDebugWindow.html() + myHTML;
+            const appendedHTML = myHTML;
+            $featureDebugWindow.html(appendedHTML);
             $featureDebugWindow.show();
         });
 
@@ -418,7 +432,7 @@ ${description}
 
         // First we iterate the 'geojson=' targets, splitting on commas.
         let geojsonDataTargets = [];
-        if (params.get("geojson"))  {
+        if (params.get("geojson")) {
             geojsonDataTargets = params.get("geojson").split(",");
         }
         if (geojsonDataTargets.length === 0) {
@@ -464,8 +478,15 @@ ${description}
             // For example:
             //   http://localhost:3001/services/ia/naps/tiles/{z}/{x}/{y}.pbf => 'naps'
             //   http://localhost:3001/services/ia/valid/tiles/{z}/{x}/{y}.pbf => 'valid'
-            const sourceID = target.split("/")[4] + '-' + target.split("/")[5]; // => 'rye-naps'
-            const sourceLayer = target.split("/")[5];
+            //   services/rye/s2_cells/level-13-polygons_edge
+            // const sourceID = target.split("/")[4] + '-' + target.split("/")[5]; // => 'rye-naps'
+            let sourceID = /\/services\/(.*)\/tiles\//.exec(target)[0];
+            sourceID = sourceID.replace("/services/", "").replace("/tiles/", "");
+
+            const sourceLayer = sourceID.split("/").pop().replace(/_edge$/, "");
+
+            // Regex for extracting the string between /services/ and /tiles/
+
 
             // Vector source.
             map.addSource(sourceID, {
@@ -503,23 +524,103 @@ ${description}
                 addLayerObject.paint = paintFor('circle');
                 addLayerObject.filter = [
                     'all',
-                    [">", "Count", 100],
+                    // [">", "Count", 100],
                 ];
 
-            } else if (/(valid|tripdetected)/.test(target)) {
+            } else if (/(valid)/.test(target)) {
 
                 addLayerObject.type = 'circle';
                 addLayerObject.paint = paintFor('circle');
+
+                // if (/valid/.test(target)) {
                 addLayerObject.paint["circle-color"] = "#888888";
                 addLayerObject.paint["circle-opacity"] = 0.8;
                 addLayerObject.paint["circle-radius"] = 2;
                 addLayerObject.filter = [
                     'all',
-                    // [ 'has', 'point_count'],
-                    // [ '>', 'point_count', 30],
-                    // ["has", "Count"],
-                    // [">", "Count", 1],
-                    // [">", "Duration", 60],
+                ];
+
+            } else if (/(tracks)/.test(target)) {
+                addLayerObject.type = 'circle';
+                addLayerObject.paint = paintFor('circle');
+                // addLayerObject.paint["circle-color"] = "#5a5a5a";
+                addLayerObject.paint["circle-color"] = [
+                    'match',
+                    ['get', 'Activity'],
+                    'Stationary', '#f32d2d',
+                    'Walking', '#e78719',
+                    'Running', '#028532',
+                    'Bike', '#3112f6',
+                    'Automotive', '#d670fa',
+                    'Unknown', '#444444',
+                    '#888888',
+                ];
+
+                // if (/valid/.test(target)) {
+                // addLayerObject.paint["circle-color"] = {
+                //     'property': 'Name',
+                //     'type': 'categorical',
+                //     'stops': [
+                //         ["Rye16", '#0000FF'],
+                //         ["false", '#FF0000'],
+                //     ]
+                // };
+
+                addLayerObject.paint["circle-opacity"] = 0.8;
+                addLayerObject.paint["circle-radius"] = 2;
+
+                if (/level-/.test(target)) {
+
+                    // regex extract the level-0n substring
+                    let matched = /level-(\d+)/.exec(target);
+                    console.log("S2 cell-level target", target, matched);
+                    switch (matched[1]) {
+                        case "23":
+                            addLayerObject.paint["circle-radius"] = 2;
+                            break;
+                        case "16":
+                            addLayerObject.paint["circle-radius"] = 4;
+                            break;
+                        case "08":
+                            addLayerObject.paint["circle-radius"] = 8;
+                            break;
+                        case "05":
+                            addLayerObject.paint["circle-radius"] = 16;
+                            break;
+                        default:
+                            console.error("Unknown level target", target);
+                    }
+                }
+
+                addLayerObject.filter = [
+                    'all',
+                ];
+
+            } else if (/(cells)/.test(target)) {
+                addLayerObject.type = 'fill';
+                addLayerObject.paint = {};
+                addLayerObject.paint["fill-color"] = "#0000cc";
+                addLayerObject.paint["fill-opacity"] = 0.4;
+
+                addLayerObject.filter = [
+                    'all',
+                ];
+
+            } else if (/tripdetected/.test(target)) {
+                addLayerObject.type = 'circle';
+                addLayerObject.paint = paintFor('circle');
+                addLayerObject.paint["circle-color"] = {
+                    'property': 'IsTrip',
+                    'type': 'categorical',
+                    'stops': [
+                        [true, '#0000FF'],
+                        [false, '#FF0000'],
+                    ]
+                };
+                addLayerObject.paint["circle-opacity"] = 0.8;
+                addLayerObject.paint["circle-radius"] = 2;
+                addLayerObject.filter = [
+                    'all',
                 ];
 
             } else if (/laps/.test(target)) {
@@ -533,15 +634,20 @@ ${description}
                 addLayerObject.paint = paintFor('line');
                 addLayerObject.filter = [
                     'all',
-                    ['>', 'PointCount', 30],
+                    ['>', 'RawPointCount', 30],
                     ['<', 'Duration', 86000],
-                    ['>', 'Duration', 120],
-                    ['<', 'AverageAccuracy', 25],
+                    // ['>', 'Duration', 120],
+                    [
+                        'any',
+                        ['!=', 'Activity', 'Walking'],
+                        ['>', 'Duration', 120],
+                    ],
+                    ['<', 'Accuracy_Mean', 25],
                     [
                         'any',
                         ['!=', 'Activity', 'Stationary'],
-                        ['>=', 'DistanceAbsolute', 100],
-                        ['>=', 'DistanceTraversed', 250],
+                        ['>=', 'Distance_Absolute', 100],
+                        ['>=', 'Distance_Traversed', 250],
                     ],
 
                     // ['==', 'Activity', 'Bike'],
@@ -552,6 +658,7 @@ ${description}
                     // ['!=', 'Activity', 'Unknown'],
                     // ['<', 'AverageAccuracy', 35],
                 ];
+                addLayerObject.filter = ['all'];
             }
 
             map.addLayer(addLayerObject);
