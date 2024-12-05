@@ -170,13 +170,14 @@ import {secondsToHms} from "./utils";
                 'Running', '#028532',
                 'Bike', '#3112f6',
                 'Automotive', '#d670fa',
+                'Fly', '#9200c3',
                 'Unknown', '#444444',
                 '#888888',
             ],
         ],
         // Watch out for line-width because it can interact with the cursor
         // and can obscure adjacent features.
-        'line-width': 6,
+        'line-width': 3,
         // 'line-width': [
         //     'case',
         //     ['boolean', ['feature-state', 'hover'], false], 2,
@@ -199,12 +200,40 @@ import {secondsToHms} from "./utils";
         // 'line-cap': 'round',
     };
 
+    const paintFill = {
+        'fill-color': [
+            // 'case',
+            // ['boolean', ['feature-state', 'hover'], false], '#000000',
+            // [
+                'match',
+                ['get', 'Activity'],
+                'Stationary', '#f32d2d',
+                'Walking', '#e78719',
+                'Running', '#028532',
+                'Bike', '#3112f6',
+                'Automotive', '#d670fa',
+                'Fly', '#9200c3',
+                'Unknown', '#444444',
+                '#888888',
+            // ],
+        ],
+        'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false], 1,
+            // 0.33,
+            0.5,
+        ],
+        'fill-outline-color': '#ffffff00',
+    }
+
     function paintFor(layerType) {
         switch (layerType) {
             case 'circle':
                 return paintCircle;
             case 'line':
                 return paintLine;
+            case 'fill':
+                return paintFill;
         }
         return {};
     }
@@ -231,14 +260,6 @@ import {secondsToHms} from "./utils";
     }
 
     function clearHoveredRegistry(sourceId, sourceLayer) {
-        // for (let i = hoveredRegistry.length - 1; i >= 0; i--) {
-        //     const spliced = hoveredRegistry.splice(i, 1);
-        //     map.setFeatureState({
-        //         source: sourceId,
-        //         sourceLayer: sourceLayer,
-        //         id: spliced[0],
-        //     }, {hover: false});
-        // }
 
         // Using the pattern from https://docs.mapbox.com/mapbox-gl-js/example/hover-styles/
         // yields spuriously sticky hover states on tightly overlapping and dense features.
@@ -257,8 +278,6 @@ import {secondsToHms} from "./utils";
 
     function addHoverState(sourceId, sourceLayer, targetLayer) {
 
-        // sourceLayer: sourceLayer ? sourceLayer : null
-        // map.on('mousemove', sourceLayer, (e) => {
         map.on('mousemove', targetLayer, (e) => {
 
             // for each feature in e.features
@@ -277,27 +296,6 @@ import {secondsToHms} from "./utils";
             // console.debug('mouseleave', targetLayer);
             clearHoveredRegistry(sourceId, sourceLayer);
             map.getCanvas().style.cursor = '';
-            // if (hoveredRegistry) {
-            //     // let gotFeatureState = map.getFeatureState({
-            //     //     source: sourceId,
-            //     //     sourceLayer: sourceLayer,
-            //     //     id: hoveredStateId,
-            //     // });
-            //     // console.debug('gotFeatureState', sourceId, sourceLayer, targetLayer, hoveredStateId, gotFeatureState);
-            //
-            //     map.setFeatureState(
-            //         {
-            //             source: sourceId,
-            //             sourceLayer: sourceLayer,
-            //             id: hoveredRegistry,
-            //         },
-            //         {hover: false}
-            //     );
-            //     console.debug("setFeatureState [hover: false]", sourceId, targetLayer, hoveredRegistry);
-            // }
-            // hoveredRegistry = null;
-            // console.debug("hoveredStateId = null", sourceId, targetLayer, hoveredRegistry);
-
         });
     }
 
@@ -310,26 +308,12 @@ import {secondsToHms} from "./utils";
     // https://maplibre.org/maplibre-gl-js/docs/examples/popup-on-hover/
     function addInspectPopup(sourceLayerID) {
         map.on('mousemove', sourceLayerID, (e) => {
+            if (typeof e === "undefined") {
+                console.debug("e is undefined");
+                return;
+            }
 
             // // https://maplibre.org/maplibre-gl-js/docs/examples/hover-styles/
-            // if (e.features.length > 0) {
-            //     if (hoveredStateId) {
-            //         map.setFeatureState(
-            //             {source: layerId, id: hoveredStateId},
-            //             {hover: false}
-            //         );
-            //     }
-            //     console.debug("e.features[0]", e.features[0]);
-            //     hoveredStateId = e.features[0].properties.Time + e.features[0].properties.UUID;
-            //     map.setFeatureState(
-            //         {source: layerId, id: hoveredStateId},
-            //         {hover: true}
-            //     );
-            // }
-
-            /*
-
-             */
             // Change the cursor style as a UI indicator.
             // map.getCanvas().style.cursor = 'pointer';
             let myHTML = `<h2>${sourceLayerID}</h2><h3>${e.features.length} features</h3>`;
@@ -408,20 +392,48 @@ ${description}
         });
     }
 
-    function renderGeoJSON(map, sourceName, data) {
-        map.addSource(sourceName, {
+    function renderGeoJSON(map, target, data) {
+        let sourceID = /\/services\/(.*)\/tiles\//.exec(target);
+        if (sourceID === null) {
+            sourceID = /\/(.*)$/.exec(target)[0];
+        } else {
+            sourceID = sourceID[0];
+        }
+        // sourceID = sourceID.replace("/services/", "").replace("/tiles/", "");
+
+        const sourceLayer = sourceID.split("/").pop().replace(/_edge$/, "");
+
+        map.addSource(sourceID, {
             'type': 'geojson',
             'data': data
         });
-        const layerType = data.features[0].geometry.type === 'Point' ? 'circle' : 'line';
+        let layerType = "";
+        // switch data.features[0].geometry.type === 'Point' ? 'circle' : 'line';
+        console.debug("data.features[0].geometry.type", data.features[0].geometry.type);
+        switch (data.features[0].geometry.type) {
+            case 'Point':
+                layerType = 'circle';
+                break;
+            case 'LineString':
+                layerType = 'line';
+                break;
+            case 'Polygon':
+                layerType = 'fill';
+                break;
+        }
         map.addLayer({
-            'id': `layer-${sourceName}`,
-            'source': sourceName,
+            'id': `layer-${sourceID}`,
+            'source': sourceID,
+            // 'sourceLayer': "",
             'type': layerType,
             'paint': paintFor(layerType)
         });
-        addHoverState(sourceName, `layer-${sourceName}`);
-        addInspectPopup(`layer-${sourceName}`);
+        /*
+                addHoverState(sourceID, sourceLayer, addLayerObject.id);
+            addInspectPopup(addLayerObject.id);
+         */
+        addHoverState(sourceID, null, `layer-${sourceID}`);
+        addInspectPopup(`layer-${sourceID}`);
     }
 
     map.on('load', async () => {
@@ -451,8 +463,9 @@ ${description}
                 return res.json();
             }).then(data => {
                 console.debug("data", data);
+
                 renderGeoJSON(map, target, data);
-                map.fitBounds(turf.bbox(data), {padding: 20});
+                // map.fitBounds(turf.bbox(data), {padding: 20});
                 // map.setCenter(turf.center(data).geometry.coordinates);
             }).catch(err => {
                 console.error(err);
@@ -570,6 +583,8 @@ ${description}
                 addLayerObject.paint["circle-radius"] = 2;
 
                 if (/level-/.test(target)) {
+
+                    addLayerObject.paint["fill-outline-color"] = "#ffffff00";
 
                     // regex extract the level-0n substring
                     let matched = /level-(\d+)/.exec(target);
