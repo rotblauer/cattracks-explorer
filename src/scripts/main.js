@@ -72,6 +72,7 @@ import {secondsToHms} from "./utils";
     });
     map.on('zoomend', function () {
         setZoom();
+        console.debug("zoomend", map.getZoom());
     });
 
     const metersToPixelsAtMaxZoom = (meters, latitude) =>
@@ -221,7 +222,7 @@ import {secondsToHms} from "./utils";
             'case',
             ['boolean', ['feature-state', 'hover'], false], 1,
             // 0.33,
-            0.5,
+            0.42,
         ],
         'fill-outline-color': '#ffffff00',
     }
@@ -259,7 +260,7 @@ import {secondsToHms} from "./utils";
         }, {hover: true});
     }
 
-    function clearHoveredRegistry(sourceId, sourceLayer) {
+    function clearHoveredRegistry(sourceId, sourceLayer, featureID) {
 
         // Using the pattern from https://docs.mapbox.com/mapbox-gl-js/example/hover-styles/
         // yields spuriously sticky hover states on tightly overlapping and dense features.
@@ -270,15 +271,25 @@ import {secondsToHms} from "./utils";
         //   which is vector-friendly, but I'm not sure about GeoJSON type).
         // This is brute force, and may have unintended consequences if feature states
         // get used in other ways.
+        if (typeof featureID === "undefined" || featureID === null) {
+            // Vector does this.
+            map.removeFeatureState({
+                source: sourceId,
+                sourceLayer: sourceLayer,
+            })
+            return;
+        }
+        // GeoJSON does this.
         map.removeFeatureState({
             source: sourceId,
             sourceLayer: sourceLayer,
-        })
+            id: featureID,
+        }, 'hover');
     }
 
     function addHoverState(sourceId, sourceLayer, targetLayer) {
-
         map.on('mousemove', targetLayer, (e) => {
+            if (typeof e === "undefined") return;
 
             // for each feature in e.features
             for (let feature of e.features) {
@@ -289,12 +300,17 @@ import {secondsToHms} from "./utils";
             map.getCanvas().style.cursor = 'pointer';
 
         });
-        // map.on('mouseout', sourceId, (e) => {
-        //     console.debug("mouseout", e);
-        // })
+        map.on('mouseout', sourceId, (e) => {
+            if (typeof e === "undefined") return;
+            for (let feature of e.features) {
+                clearHoveredRegistry(sourceId, sourceLayer, feature.id);
+            }
+            console.debug("mouseout", e);
+        })
         map.on('mouseleave', targetLayer, () => {
-            // console.debug('mouseleave', targetLayer);
+            // Vector.
             clearHoveredRegistry(sourceId, sourceLayer);
+            // clearHoveredRegistry(sourceId, sourceLayer, e.features[0] ? e.features[0].id : null);
             map.getCanvas().style.cursor = '';
         });
     }
@@ -308,11 +324,6 @@ import {secondsToHms} from "./utils";
     // https://maplibre.org/maplibre-gl-js/docs/examples/popup-on-hover/
     function addInspectPopup(sourceLayerID) {
         map.on('mousemove', sourceLayerID, (e) => {
-            if (typeof e === "undefined") {
-                console.debug("e is undefined");
-                return;
-            }
-
             // // https://maplibre.org/maplibre-gl-js/docs/examples/hover-styles/
             // Change the cursor style as a UI indicator.
             // map.getCanvas().style.cursor = 'pointer';
@@ -337,36 +348,6 @@ ${description}
 <p style="font-size: larger;">${secondsToHms(feature.properties.Duration)}</p>
 `;
             }
-
-            // Is it a line or a point?
-            // console.debug("e.features[0].geometry", e.features[0].geometry);
-            // let coordinates = [0,0];
-            // const feat = e.features[0];
-            // if (feat.geometry.type === "MultiLineString") {
-            //     // Get LAST-LAST coordinates from the list.
-            //     const lastLine = feat.geometry.coordinates[feat.geometry.coordinates.length -1];
-            //     coordinates = lastLine[lastLine.length-1].slice();
-            // } else if (feat.geometry.type === "LineString") {
-            //     // Get LAST coordinates from the list.
-            //     coordinates = feat.geometry.coordinates[feat.geometry.coordinates.length -1].slice();
-            // } else if (feat.geometry.type === "Point") {
-            //     coordinates = feat.geometry.coordinates.slice();
-            // }
-            // console.debug(feat.geometry.type, coordinates);
-
-
-            // // Ensure that if the map is zoomed out such that multiple
-            // // copies of the feature are visible, the popup appears
-            // // over the copy being pointed to.
-            // while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-            //     coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-            // }
-
-            // Populate the popup and set its coordinates
-            // based on the feature found.
-            // popup.setLngLat(coordinates).setHTML(description).addTo(map);
-            // popup.setHTML(description).addTo(map);
-
             // const appendedHTML = $featureDebugWindow.html() + myHTML;
             const appendedHTML = myHTML;
             $featureDebugWindow.html(appendedHTML);
@@ -379,16 +360,7 @@ ${description}
 
             setTimeout(() => {
                 // popup.remove(); // from map
-            }, 500);
-            // $featureDebugWindow.hide();
-
-            // if (hoveredStateId) {
-            //     map.setFeatureState(
-            //         {source: layerId, id: hoveredStateId},
-            //         {hover: false}
-            //     );
-            // }
-            // hoveredStateId = null;
+            }, 100);
         });
     }
 
@@ -540,7 +512,7 @@ ${description}
                     // [">", "Count", 100],
                 ];
 
-            } else if (/(valid)/.test(target)) {
+            } else if (false) /*(/(valid)/.test(target))*/ {
 
                 addLayerObject.type = 'circle';
                 addLayerObject.paint = paintFor('circle');
@@ -582,40 +554,15 @@ ${description}
                 addLayerObject.paint["circle-opacity"] = 0.8;
                 addLayerObject.paint["circle-radius"] = 2;
 
-                if (/level-/.test(target)) {
-
-                    addLayerObject.paint["fill-outline-color"] = "#ffffff00";
-
-                    // regex extract the level-0n substring
-                    let matched = /level-(\d+)/.exec(target);
-                    console.log("S2 cell-level target", target, matched);
-                    switch (matched[1]) {
-                        case "23":
-                            addLayerObject.paint["circle-radius"] = 2;
-                            break;
-                        case "16":
-                            addLayerObject.paint["circle-radius"] = 4;
-                            break;
-                        case "08":
-                            addLayerObject.paint["circle-radius"] = 8;
-                            break;
-                        case "05":
-                            addLayerObject.paint["circle-radius"] = 16;
-                            break;
-                        default:
-                            console.error("Unknown level target", target);
-                    }
-                }
-
                 addLayerObject.filter = [
                     'all',
                 ];
 
             } else if (/(cells)/.test(target)) {
+                console.debug("target test CELLS");
+
                 addLayerObject.type = 'fill';
-                addLayerObject.paint = {};
-                addLayerObject.paint["fill-color"] = "#0000cc";
-                addLayerObject.paint["fill-opacity"] = 0.4;
+                addLayerObject.paint = paintFor('fill');
 
                 addLayerObject.filter = [
                     'all',
@@ -677,6 +624,7 @@ ${description}
             }
 
             map.addLayer(addLayerObject);
+            console.debug("DEBUG: Add vector target layer.", "addLayerObject", addLayerObject);
 
             // For vector sources, sourceLayer is required.
             addHoverState(sourceID, sourceLayer, addLayerObject.id);
